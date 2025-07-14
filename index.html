@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisador de HTML SEO PagueMenos</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Analisador de HTML SEO PagueMenos</h1>
+        <p>Desenvolvido por Junior Silva</p>
+    </header>
+
+    <div class="button-container">
+        <button id="boldButton">Negrito</button>
+        <button id="linkButton">Inserir Link</button>
+    </div>
+
+    <div class="container">
+        <div class="block">
+            <div class="copy-button-container">
+                <button id="copyHtmlButton" class="copy-html-btn">Copiar</button>
+            </div>
+            <textarea id="htmlInput" placeholder="Cole o código HTML aqui..."></textarea>
+        </div>
+        
+        <div class="block">
+            <div class="text-controls">
+                <button id="copyTextButton" class="copy-text-btn">Copiar</button>
+                <button id="clearTextButton" class="clear-text-btn">Apagar</button>
+            </div>
+            <iframe id="renderedOutput" sandbox="allow-same-origin allow-scripts"></iframe>
+            
+            <div class="link-counter">
+                <div class="counter-header">
+                    <span>Contagem de Hiperlinks: </span>
+                    <span id="linkCount">0</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <div id="linkStatus" class="link-status">Ruim!</div>
+            </div>
+            
+            <div class="link-table-container">
+                <h4>Links Encontrados:</h4>
+                <table class="link-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Quantidade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="linkTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
