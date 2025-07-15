@@ -120,54 +120,118 @@ function formatHTML(html) {
 // Função para verificar status do link
 async function checkLinkStatus(url) {
     try {
-        // Tentar fazer uma requisição HEAD primeiro (mais rápida)
-        const headResponse = await fetch(url, {
-            method: 'HEAD',
-            mode: 'no-cors', // Evita problemas de CORS
-            cache: 'no-cache'
+        // Usar proxy CORS para ler o HTML da página
+        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+        
+        const response = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout: 10000
         });
         
-        // Se chegou até aqui, o link responde
-        return { status: 200, text: 'Link ativo' };
+        if (!response.ok) {
+            return { status: 404, text: 'Link inativo' };
+        }
+        
+        const html = await response.text();
+        
+        // Verificar se é uma página de erro 404
+        const errorIndicators = [
+            'página não encontrada',
+            'page not found',
+            'oops',
+            '404',
+            'erro 404',
+            'not found',
+            'página inexistente',
+            'conteúdo não encontrado',
+            'produto não encontrado'
+        ];
+        
+        const htmlLower = html.toLowerCase();
+        const hasError = errorIndicators.some(indicator => 
+            htmlLower.includes(indicator.toLowerCase())
+        );
+        
+        if (hasError) {
+            return { status: 404, text: 'Página não encontrada' };
+        }
+        
+        // Verificar se tem indicadores de produto válido
+        const productIndicators = [
+            'adicionar ao carrinho',
+            'comprar',
+            'preço',
+            'produto',
+            'medicamento',
+            'add to cart',
+            'buy now',
+            'price',
+            'disponível',
+            'estoque'
+        ];
+        
+        const hasProduct = productIndicators.some(indicator => 
+            htmlLower.includes(indicator.toLowerCase())
+        );
+        
+        if (hasProduct) {
+            return { status: 200, text: 'Produto encontrado' };
+        }
+        
+        // Se não tem erro nem indicadores de produto, considerar como página válida
+        return { status: 200, text: 'Página válida' };
         
     } catch (error) {
-        // Se deu erro, tentar uma abordagem diferente
+        console.error('Erro na primeira tentativa:', error);
+        
+        // Fallback: tentar outro proxy
         try {
-            // Tentar criar um elemento img para testar se o domínio responde
-            const img = new Image();
-            const domain = new URL(url).origin;
+            const fallbackProxy = `https://cors-anywhere.herokuapp.com/${url}`;
             
-            return new Promise((resolve) => {
-                const timeout = setTimeout(() => {
-                    resolve({ status: 404, text: 'Link inativo' });
-                }, 5000);
-                
-                img.onload = () => {
-                    clearTimeout(timeout);
-                    resolve({ status: 200, text: 'Link ativo' });
-                };
-                
-                img.onerror = () => {
-                    clearTimeout(timeout);
-                    // Tentar verificar se é um erro de CORS ou realmente 404
-                    if (error.message && error.message.includes('CORS')) {
-                        resolve({ status: 200, text: 'Link ativo (CORS)' });
-                    } else {
-                        resolve({ status: 404, text: 'Link inativo' });
-                    }
-                };
-                
-                // Usar favicon como teste
-                img.src = `${domain}/favicon.ico`;
+            const fallbackResponse = await fetch(fallbackProxy, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
             
-        } catch (fallbackError) {
-            console.error('Erro ao verificar link:', fallbackError);
+            if (!fallbackResponse.ok) {
+                return { status: 404, text: 'Link inativo' };
+            }
             
-            // Verificação básica de URL válida
+            const html = await fallbackResponse.text();
+            const htmlLower = html.toLowerCase();
+            
+            // Mesma verificação de erro
+            const errorIndicators = [
+                'página não encontrada',
+                'page not found',
+                'oops',
+                '404',
+                'erro 404'
+            ];
+            
+            const hasError = errorIndicators.some(indicator => 
+                htmlLower.includes(indicator.toLowerCase())
+            );
+            
+            if (hasError) {
+                return { status: 404, text: 'Página não encontrada' };
+            }
+            
+            return { status: 200, text: 'Página válida' };
+            
+        } catch (fallbackError) {
+            console.error('Erro no fallback:', fallbackError);
+            
+            // Último recurso: verificação básica de URL
             try {
                 new URL(url);
-                return { status: 200, text: 'URL válida' };
+                return { status: 'error', text: 'Não foi possível verificar' };
             } catch (urlError) {
                 return { status: 404, text: 'URL inválida' };
             }
