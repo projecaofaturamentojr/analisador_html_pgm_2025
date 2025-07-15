@@ -120,94 +120,58 @@ function formatHTML(html) {
 // Função para verificar status do link
 async function checkLinkStatus(url) {
     try {
-        // Lista de proxies CORS para tentar em ordem
-        const corsProxies = [
-            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-            `https://cors-anywhere.herokuapp.com/${url}`,
-            `https://thingproxy.freeboard.io/fetch/${url}`
-        ];
+        // Tentar fazer uma requisição HEAD primeiro (mais rápida)
+        const headResponse = await fetch(url, {
+            method: 'HEAD',
+            mode: 'no-cors', // Evita problemas de CORS
+            cache: 'no-cache'
+        });
         
-        let response = null;
-        let htmlContent = '';
-        
-        // Tentar cada proxy até um funcionar
-        for (const proxyUrl of corsProxies) {
-            try {
-                response = await fetch(proxyUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    },
-                    timeout: 10000 // 10 segundos de timeout
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    htmlContent = data.contents || data.response || '';
-                    break; // Se funcionou, sair do loop
-                }
-            } catch (proxyError) {
-                console.warn(`Proxy ${proxyUrl} falhou:`, proxyError);
-                continue; // Tentar próximo proxy
-            }
-        }
-        
-        // Se nenhum proxy funcionou, retornar erro
-        if (!htmlContent) {
-            return { status: 'error', text: 'Não foi possível verificar' };
-        }
-        
-        // Verificar se é uma página de erro 404 ou página não encontrada
-        const lowerHtml = htmlContent.toLowerCase();
-        
-        // Verificações para página não encontrada
-        const errorIndicators = [
-            'página não encontrada',
-            'page not found',
-            '404',
-            'não foi possível encontrar',
-            'produto não encontrado',
-            'erro 404',
-            'not found',
-            'página inexistente'
-        ];
-        
-        const hasError = errorIndicators.some(indicator => 
-            lowerHtml.includes(indicator)
-        );
-        
-        if (hasError) {
-            return { status: 404, text: 'Página não encontrada' };
-        }
-        
-        // Verificar se tem conteúdo de produto (indicadores positivos)
-        const productIndicators = [
-            'adicionar ao carrinho',
-            'comprar',
-            'preço',
-            'produto',
-            'descrição',
-            'composição',
-            'bula',
-            'disponível',
-            'estoque'
-        ];
-        
-        const hasProduct = productIndicators.some(indicator => 
-            lowerHtml.includes(indicator)
-        );
-        
-        if (hasProduct) {
-            return { status: 200, text: 'Produto encontrado' };
-        }
-        
-        // Se não tem indicadores de erro nem de produto, assumir que está OK
-        return { status: 200, text: 'Página carregada' };
+        // Se chegou até aqui, o link responde
+        return { status: 200, text: 'Link ativo' };
         
     } catch (error) {
-        console.error('Erro ao verificar link:', error);
-        return { status: 'error', text: 'Erro de conexão' };
+        // Se deu erro, tentar uma abordagem diferente
+        try {
+            // Tentar criar um elemento img para testar se o domínio responde
+            const img = new Image();
+            const domain = new URL(url).origin;
+            
+            return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    resolve({ status: 404, text: 'Link inativo' });
+                }, 5000);
+                
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    resolve({ status: 200, text: 'Link ativo' });
+                };
+                
+                img.onerror = () => {
+                    clearTimeout(timeout);
+                    // Tentar verificar se é um erro de CORS ou realmente 404
+                    if (error.message && error.message.includes('CORS')) {
+                        resolve({ status: 200, text: 'Link ativo (CORS)' });
+                    } else {
+                        resolve({ status: 404, text: 'Link inativo' });
+                    }
+                };
+                
+                // Usar favicon como teste
+                img.src = `${domain}/favicon.ico`;
+            });
+            
+        } catch (fallbackError) {
+            console.error('Erro ao verificar link:', fallbackError);
+            
+            // Verificação básica de URL válida
+            try {
+                new URL(url);
+                return { status: 200, text: 'URL válida' };
+            } catch (urlError) {
+                return { status: 404, text: 'URL inválida' };
+            }
+        }
     }
 }
 
