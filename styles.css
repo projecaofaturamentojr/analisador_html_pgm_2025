@@ -209,6 +209,11 @@ button:focus {
 .status-404 {
     color: #dc3545;
     background-color: #f8d7da;
+}
+
+.status-error {
+    color: #ffc107;
+    font-weight: bold;
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 0.8rem;

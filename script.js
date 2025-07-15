@@ -120,16 +120,43 @@ function formatHTML(html) {
 // Função para verificar status do link
 async function checkLinkStatus(url) {
     try {
-        // Usar um proxy CORS para fazer a requisição
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const response = await fetch(proxyUrl);
+        // Lista de proxies CORS para tentar em ordem
+        const corsProxies = [
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+            `https://cors-anywhere.herokuapp.com/${url}`,
+            `https://thingproxy.freeboard.io/fetch/${url}`
+        ];
         
-        if (!response.ok) {
-            return { status: 404, text: 'Erro na requisição' };
+        let response = null;
+        let htmlContent = '';
+        
+        // Tentar cada proxy até um funcionar
+        for (const proxyUrl of corsProxies) {
+            try {
+                response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    },
+                    timeout: 10000 // 10 segundos de timeout
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    htmlContent = data.contents || data.response || '';
+                    break; // Se funcionou, sair do loop
+                }
+            } catch (proxyError) {
+                console.warn(`Proxy ${proxyUrl} falhou:`, proxyError);
+                continue; // Tentar próximo proxy
+            }
         }
         
-        const data = await response.json();
-        const htmlContent = data.contents;
+        // Se nenhum proxy funcionou, retornar erro
+        if (!htmlContent) {
+            return { status: 'error', text: 'Não foi possível verificar' };
+        }
         
         // Verificar se é uma página de erro 404 ou página não encontrada
         const lowerHtml = htmlContent.toLowerCase();
@@ -162,7 +189,9 @@ async function checkLinkStatus(url) {
             'produto',
             'descrição',
             'composição',
-            'bula'
+            'bula',
+            'disponível',
+            'estoque'
         ];
         
         const hasProduct = productIndicators.some(indicator => 
@@ -178,7 +207,7 @@ async function checkLinkStatus(url) {
         
     } catch (error) {
         console.error('Erro ao verificar link:', error);
-        return { status: 404, text: 'Erro de conexão' };
+        return { status: 'error', text: 'Erro de conexão' };
     }
 }
 
@@ -216,10 +245,24 @@ async function updateLinkCounter() {
             // Verificar status do link de forma assíncrona
             checkLinkStatus(url).then(result => {
                 const statusCell = row.querySelector('.link-status-cell');
-                const statusClass = result.status === 200 ? 'status-200' : 'status-404';
-                const statusText = result.status === 200 ? '200' : '404';
+                let statusClass, statusText;
+                
+                if (result.status === 200) {
+                    statusClass = 'status-200';
+                    statusText = '200';
+                } else if (result.status === 404) {
+                    statusClass = 'status-404';
+                    statusText = '404';
+                } else {
+                    statusClass = 'status-error';
+                    statusText = 'Erro';
+                }
                 
                 statusCell.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+            }).catch(error => {
+                console.error('Erro na verificação do link:', error);
+                const statusCell = row.querySelector('.link-status-cell');
+                statusCell.innerHTML = `<span class="status-error">Erro</span>`;
             });
         }
     }
