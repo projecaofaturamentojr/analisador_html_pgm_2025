@@ -193,6 +193,33 @@ button:focus {
     color: #007bff;
 }
 
+.link-status-cell {
+    text-align: center;
+    font-weight: bold;
+}
+
+.status-200 {
+    color: #28a745;
+    background-color: #d4edda;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.status-404 {
+    color: #dc3545;
+    background-color: #f8d7da;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.checking-status {
+    color: #6c757d;
+    font-style: italic;
+    font-size: 0.8rem;
+}
+
 .counter-header {
     display: flex;
     justify-content: space-between;

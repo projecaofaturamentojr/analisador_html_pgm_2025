@@ -110,12 +110,80 @@ function formatHTML(html) {
             }
         }
     }
+
+    // Remove <p> do início e fim se existirem
+    formattedHtml = formattedHtml.replace(/^<p>/, '').replace(/<\/p>$/, '');
     
     return formattedHtml;
 }
 
+// Função para verificar status do link
+async function checkLinkStatus(url) {
+    try {
+        // Usar um proxy CORS para fazer a requisição
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) {
+            return { status: 404, text: 'Erro na requisição' };
+        }
+        
+        const data = await response.json();
+        const htmlContent = data.contents;
+        
+        // Verificar se é uma página de erro 404 ou página não encontrada
+        const lowerHtml = htmlContent.toLowerCase();
+        
+        // Verificações para página não encontrada
+        const errorIndicators = [
+            'página não encontrada',
+            'page not found',
+            '404',
+            'não foi possível encontrar',
+            'produto não encontrado',
+            'erro 404',
+            'not found',
+            'página inexistente'
+        ];
+        
+        const hasError = errorIndicators.some(indicator => 
+            lowerHtml.includes(indicator)
+        );
+        
+        if (hasError) {
+            return { status: 404, text: 'Página não encontrada' };
+        }
+        
+        // Verificar se tem conteúdo de produto (indicadores positivos)
+        const productIndicators = [
+            'adicionar ao carrinho',
+            'comprar',
+            'preço',
+            'produto',
+            'descrição',
+            'composição',
+            'bula'
+        ];
+        
+        const hasProduct = productIndicators.some(indicator => 
+            lowerHtml.includes(indicator)
+        );
+        
+        if (hasProduct) {
+            return { status: 200, text: 'Produto encontrado' };
+        }
+        
+        // Se não tem indicadores de erro nem de produto, assumir que está OK
+        return { status: 200, text: 'Página carregada' };
+        
+    } catch (error) {
+        console.error('Erro ao verificar link:', error);
+        return { status: 404, text: 'Erro de conexão' };
+    }
+}
+
 // Função para contar links e atualizar barra
-function updateLinkCounter() {
+async function updateLinkCounter() {
     const doc = renderedOutput.contentDocument || renderedOutput.contentWindow.document;
     const links = doc.querySelectorAll('a[href]');
     const count = links.length;
@@ -134,14 +202,26 @@ function updateLinkCounter() {
     linkTable.innerHTML = '';
     
     if (Object.keys(linkFrequency).length > 0) {
-        Object.entries(linkFrequency).forEach(([url, frequency]) => {
+        for (const [url, frequency] of Object.entries(linkFrequency)) {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="link-url"><a href="${url}" target="_blank">${url}</a></td>
                 <td class="link-count">${frequency}</td>
+                <td class="link-status-cell">
+                    <span class="checking-status">Verificando...</span>
+                </td>
             `;
             linkTable.appendChild(row);
-        });
+            
+            // Verificar status do link de forma assíncrona
+            checkLinkStatus(url).then(result => {
+                const statusCell = row.querySelector('.link-status-cell');
+                const statusClass = result.status === 200 ? 'status-200' : 'status-404';
+                const statusText = result.status === 200 ? '200' : '404';
+                
+                statusCell.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+            });
+        }
     }
     
     let percentage = 0;
