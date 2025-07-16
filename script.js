@@ -119,141 +119,59 @@ function formatHTML(html) {
 
 // Função para verificar status do link - baseada na lógica Python que funciona
 async function checkLinkStatus(url) {
+    // Implementação baseada exatamente na função validar_link do Python
+    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+    
     try {
-        // Lista de proxies CORS para tentar em ordem
-        const proxies = [
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-            `https://cors-anywhere.herokuapp.com/${url}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
-        ];
+        const response = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0'
+            },
+            signal: AbortSignal.timeout(20000) // 20s como no Python
+        });
         
-        let lastError = null;
+        // Verifica status HTTP primeiro (como no Python)
+        if (response.status === 404) {
+            return { status: "ERRO 404", message: "Status Code 404" };
+        } else if (response.status >= 500) {
+            return { status: "ERRO CONEXÃO", message: `Erro do servidor: ${response.status}` };
+        } else if (response.status !== 200) {
+            return { status: "OK", message: `Status ${response.status} - Página acessível` };
+        }
         
-        // Tenta cada proxy em sequência
-        for (const proxyUrl of proxies) {
-            try {
-                const response = await fetch(proxyUrl, {
-                    method: 'GET',
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    },
-                    signal: AbortSignal.timeout(15000)
-                });
-                
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        return { status: 404, text: 'Status Code 404' };
-                    } else if (response.status >= 500) {
-                        return { status: 'ERRO', text: `Erro do servidor: ${response.status}` };
-                    } else if (response.status !== 200) {
-                        return { status: 200, text: `Status ${response.status} - Página acessível` };
-                    }
+        // Se status é 200, analisa o conteúdo (como no Python)
+        const content = await response.text();
+        const contentLower = content.toLowerCase();
+        
+        // Verifica condição específica do PagueMenos (exatamente como no Python)
+        if (contentLower.includes("nenhum resultado encontrado") && 
+            contentLower.includes("início / nenhum resultado encontrado")) {
+            return { status: "ERRO 404", message: "Erro 404 confirmado - Página de erro detectada" };
+        }
+        
+        // Verifica título da página (exatamente como no Python)
+        if (contentLower.includes("<title>")) {
+            const titleStart = contentLower.indexOf('<title>') + 7;
+            const titleEnd = contentLower.indexOf('</title>');
+            if (titleEnd > titleStart) {
+                const title = content.substring(titleStart, titleEnd).trim();
+                if (title && title.length > 10) {
+                    const nomeProduto = title.replace(/ - pague menos/gi, '').trim();
+                    return { status: "OK", message: `Produto válido detectado: ${nomeProduto.substring(0, 30)}` };
                 }
-                
-                let content = '';
-                
-                // Trata diferentes formatos de resposta dos proxies
-                if (proxyUrl.includes('allorigins')) {
-                    const data = await response.json();
-                    content = data.contents || '';
-                } else {
-                    content = await response.text();
-                }
-                
-                // Converte para minúsculo para busca case-insensitive (como no Python)
-                const contentLower = content.toLowerCase();
-                
-                // Verifica indicadores de erro 404 (mesma lógica do Python)
-                if (contentLower.includes("nenhum resultado encontrado") && 
-                    contentLower.includes("início / nenhum resultado encontrado")) {
-                    return { status: 404, text: 'Erro 404 confirmado - Página de erro detectada' };
-                }
-                
-                // Lista expandida de indicadores de erro (baseada no Python)
-                const indicadoresErro = [
-                    "oops",
-                    "página não encontrada",
-                    "page not found",
-                    "404",
-                    "erro 404",
-                    "not found",
-                    "página inexistente",
-                    "conteúdo não encontrado",
-                    "produto não encontrado",
-                    "página removida",
-                    "url não encontrada",
-                    "endereço incorreto"
-                ];
-                
-                // Verifica se algum indicador de erro está presente
-                for (const indicador of indicadoresErro) {
-                    if (contentLower.includes(indicador)) {
-                        return { status: 404, text: `Página não encontrada - Detectado: '${indicador}'` };
-                    }
-                }
-                
-                // Extrai título da página (mesma lógica do Python)
-                if (contentLower.includes("<title>")) {
-                    const titleStart = contentLower.indexOf('<title>') + 7;
-                    const titleEnd = contentLower.indexOf('</title>');
-                    if (titleEnd > titleStart) {
-                        let title = content.substring(titleStart, titleEnd).trim();
-                        if (title && title.length > 10) {
-                            // Remove " - pague menos" como no Python
-                            const nomeProduto = title.replace(/ - pague menos/gi, '').trim();
-                            return { status: 200, text: `Produto válido detectado: ${nomeProduto.substring(0, 30)}` };
-                        }
-                    }
-                }
-                
-                // Lista de indicadores de produto válido
-                const indicadoresProduto = [
-                    "adicionar ao carrinho",
-                    "comprar agora",
-                    "add to cart",
-                    "buy now",
-                    "preço",
-                    "price",
-                    "produto",
-                    "medicamento",
-                    "disponível",
-                    "estoque",
-                    "quantidade",
-                    "comprar",
-                    "carrinho",
-                    "valor",
-                    "desconto"
-                ];
-                
-                // Verifica se é uma página de produto válida
-                for (const indicador of indicadoresProduto) {
-                    if (contentLower.includes(indicador)) {
-                        return { status: 200, text: `Produto encontrado - Detectado: '${indicador}'` };
-                    }
-                }
-                
-                // Se chegou até aqui, página está OK mas sem indicadores específicos
-                return { status: 200, text: 'Página OK - Nenhum indicador de erro' };
-                
-            } catch (proxyError) {
-                lastError = proxyError;
-                console.log(`Proxy ${proxyUrl} falhou:`, proxyError.message);
-                continue; // Tenta o próximo proxy
             }
         }
         
-        // Se todos os proxies falharam
-        throw lastError || new Error('Todos os proxies falharam');
+        // Se chegou até aqui, página OK sem indicadores específicos (como no Python)
+        return { status: "OK", message: "Página OK - Nenhum indicador de erro" };
         
     } catch (error) {
-        console.error('Erro na verificação do link:', error);
-        
-        // Tratamento de erros específicos (como no Python)
+        // Tratamento de erros (exatamente como no Python)
         if (error.name === 'AbortError') {
-            return { status: 'ERRO', text: 'Timeout na conexão' };
+            return { status: "ERRO CONEXÃO", message: "Timeout na conexão" };
         }
-        
-        return { status: 'ERRO', text: error.message.substring(0, 60) };
+        return { status: "ERRO CONEXÃO", message: error.message.substring(0, 60) };
     }
 }
 
@@ -289,22 +207,22 @@ async function updateLinkCounter() {
             linkTable.appendChild(row);
             
             // Verificar status do link de forma assíncrona
-            checkLinkStatus(url).then(result => {
+            checkLinkStatus(url).then(({ status, message }) => {
                 const statusCell = row.querySelector('.link-status-cell');
-                let statusClass, statusText;
                 
-                if (result.status === 200) {
-                    statusClass = 'status-200';
-                    statusText = '200';
-                } else if (result.status === 404) {
-                    statusClass = 'status-404';
-                    statusText = '404';
+                // Mapeia status do Python para classes CSS
+                if (status === "OK") {
+                    statusCell.innerHTML = `<span class="status-200" title="${message}">200</span>`;
+                } else if (status === "ERRO 404") {
+                    statusCell.innerHTML = `<span class="status-404" title="${message}">404</span>`;
                 } else {
-                    statusClass = 'status-error';
-                    statusText = 'Erro';
+                    // ERRO CONEXÃO ou outros erros
+                    statusCell.innerHTML = `<span class="status-error" title="${message}">ERRO</span>`;
                 }
-                
-                statusCell.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+            }).catch(error => {
+                console.error('Erro na verificação:', error);
+                const statusCell = row.querySelector('.link-status-cell');
+                statusCell.innerHTML = `<span class="status-error" title="Erro na verificação">ERRO</span>`;
             }).catch(error => {
                 console.error('Erro na verificação do link:', error);
                 const statusCell = row.querySelector('.link-status-cell');
