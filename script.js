@@ -117,37 +117,143 @@ function formatHTML(html) {
     return formattedHtml;
 }
 
-// Função para verificar status do link
+// Função para verificar status do link - baseada na lógica Python que funciona
 async function checkLinkStatus(url) {
     try {
-        // Verifica se a URL é válida
-        const urlObj = new URL(url);
+        // Lista de proxies CORS para tentar em ordem
+        const proxies = [
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+            `https://cors-anywhere.herokuapp.com/${url}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+        ];
         
-        // Tenta fazer uma requisição simples para verificar se o link responde
-        const response = await fetch(url, {
-            method: 'HEAD',
-            mode: 'no-cors',
-            cache: 'no-cache',
-            signal: AbortSignal.timeout(5000)
-        });
+        let lastError = null;
         
-        // Como estamos usando no-cors, não conseguimos ler o status exato
-        // Mas se chegou até aqui sem erro, o link provavelmente está ativo
-        return { status: 200, text: 'Link ativo' };
+        // Tenta cada proxy em sequência
+        for (const proxyUrl of proxies) {
+            try {
+                const response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    },
+                    signal: AbortSignal.timeout(15000)
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        return { status: 404, text: 'Status Code 404' };
+                    } else if (response.status >= 500) {
+                        return { status: 'ERRO', text: `Erro do servidor: ${response.status}` };
+                    } else if (response.status !== 200) {
+                        return { status: 200, text: `Status ${response.status} - Página acessível` };
+                    }
+                }
+                
+                let content = '';
+                
+                // Trata diferentes formatos de resposta dos proxies
+                if (proxyUrl.includes('allorigins')) {
+                    const data = await response.json();
+                    content = data.contents || '';
+                } else {
+                    content = await response.text();
+                }
+                
+                // Converte para minúsculo para busca case-insensitive (como no Python)
+                const contentLower = content.toLowerCase();
+                
+                // Verifica indicadores de erro 404 (mesma lógica do Python)
+                if (contentLower.includes("nenhum resultado encontrado") && 
+                    contentLower.includes("início / nenhum resultado encontrado")) {
+                    return { status: 404, text: 'Erro 404 confirmado - Página de erro detectada' };
+                }
+                
+                // Lista expandida de indicadores de erro (baseada no Python)
+                const indicadoresErro = [
+                    "oops",
+                    "página não encontrada",
+                    "page not found",
+                    "404",
+                    "erro 404",
+                    "not found",
+                    "página inexistente",
+                    "conteúdo não encontrado",
+                    "produto não encontrado",
+                    "página removida",
+                    "url não encontrada",
+                    "endereço incorreto"
+                ];
+                
+                // Verifica se algum indicador de erro está presente
+                for (const indicador of indicadoresErro) {
+                    if (contentLower.includes(indicador)) {
+                        return { status: 404, text: `Página não encontrada - Detectado: '${indicador}'` };
+                    }
+                }
+                
+                // Extrai título da página (mesma lógica do Python)
+                if (contentLower.includes("<title>")) {
+                    const titleStart = contentLower.indexOf('<title>') + 7;
+                    const titleEnd = contentLower.indexOf('</title>');
+                    if (titleEnd > titleStart) {
+                        let title = content.substring(titleStart, titleEnd).trim();
+                        if (title && title.length > 10) {
+                            // Remove " - pague menos" como no Python
+                            const nomeProduto = title.replace(/ - pague menos/gi, '').trim();
+                            return { status: 200, text: `Produto válido detectado: ${nomeProduto.substring(0, 30)}` };
+                        }
+                    }
+                }
+                
+                // Lista de indicadores de produto válido
+                const indicadoresProduto = [
+                    "adicionar ao carrinho",
+                    "comprar agora",
+                    "add to cart",
+                    "buy now",
+                    "preço",
+                    "price",
+                    "produto",
+                    "medicamento",
+                    "disponível",
+                    "estoque",
+                    "quantidade",
+                    "comprar",
+                    "carrinho",
+                    "valor",
+                    "desconto"
+                ];
+                
+                // Verifica se é uma página de produto válida
+                for (const indicador of indicadoresProduto) {
+                    if (contentLower.includes(indicador)) {
+                        return { status: 200, text: `Produto encontrado - Detectado: '${indicador}'` };
+                    }
+                }
+                
+                // Se chegou até aqui, página está OK mas sem indicadores específicos
+                return { status: 200, text: 'Página OK - Nenhum indicador de erro' };
+                
+            } catch (proxyError) {
+                lastError = proxyError;
+                console.log(`Proxy ${proxyUrl} falhou:`, proxyError.message);
+                continue; // Tenta o próximo proxy
+            }
+        }
+        
+        // Se todos os proxies falharam
+        throw lastError || new Error('Todos os proxies falharam');
         
     } catch (error) {
-        // Se deu erro na requisição, provavelmente o link está inativo
+        console.error('Erro na verificação do link:', error);
+        
+        // Tratamento de erros específicos (como no Python)
         if (error.name === 'AbortError') {
-            return { status: 404, text: 'Timeout - Link pode estar inativo' };
+            return { status: 'ERRO', text: 'Timeout na conexão' };
         }
         
-        // Verifica se é um erro de rede/DNS
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-            return { status: 404, text: 'Link inativo ou inacessível' };
-        }
-        
-        // Para outros erros, assume que o link pode estar com problema
-        return { status: 404, text: 'Erro ao verificar link' };
+        return { status: 'ERRO', text: error.message.substring(0, 60) };
     }
 }
 
