@@ -120,121 +120,133 @@ function formatHTML(html) {
 // Função para verificar status do link
 async function checkLinkStatus(url) {
     try {
-        // Usar proxy CORS para ler o HTML da página
-        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+        // Múltiplos proxies CORS para maior confiabilidade
+        const proxies = [
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+            `https://cors-anywhere.herokuapp.com/${url}`
+        ];
         
-        const response = await fetch(proxyUrl, {
-            method: 'GET',
-            headers: {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            },
-            timeout: 10000
-        });
+        let response = null;
+        let html = '';
         
-        if (!response.ok) {
-            return { status: 404, text: 'Link inativo' };
+        // Tenta cada proxy em sequência
+        for (const proxyUrl of proxies) {
+            try {
+                response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    },
+                    signal: AbortSignal.timeout(15000) // 15 segundos timeout
+                });
+                
+                if (response.ok) {
+                    // Para api.allorigins.win, o HTML vem em response.contents
+                    if (proxyUrl.includes('allorigins')) {
+                        const data = await response.json();
+                        html = data.contents || '';
+                    } else {
+                        html = await response.text();
+                    }
+                    break; // Sucesso, sai do loop
+                }
+            } catch (proxyError) {
+                console.log(`Proxy ${proxyUrl} falhou:`, proxyError.message);
+                continue; // Tenta próximo proxy
+            }
         }
         
-        const html = await response.text();
+        if (!html) {
+            return { status: 'error', text: 'Não foi possível acessar a página' };
+        }
         
-        // Verificar se é uma página de erro 404
+        // Converte para minúsculo para busca case-insensitive (como no Python)
+        const content = html.toLowerCase();
+        
+        // Verificação específica do PagueMenos (baseada no código Python)
+        if (content.includes("nenhum resultado encontrado") && content.includes("início / nenhum resultado encontrado")) {
+            return { status: 404, text: 'Erro 404 confirmado - Página de erro detectada' };
+        }
+        
+        // Lista de indicadores de erro 404 (expandida baseada no Python)
         const errorIndicators = [
-            'página não encontrada',
-            'page not found',
             'oops',
+            'página não encontrada',
+            'page not found', 
             '404',
             'erro 404',
             'not found',
             'página inexistente',
             'conteúdo não encontrado',
-            'produto não encontrado'
+            'produto não encontrado',
+            'página removida',
+            'url não encontrada',
+            'endereço incorreto',
+            'nenhum resultado encontrado'
         ];
         
-        const htmlLower = html.toLowerCase();
-        const hasError = errorIndicators.some(indicator => 
-            htmlLower.includes(indicator.toLowerCase())
-        );
+        // Verifica se algum indicador de erro está presente
+        const hasError = errorIndicators.some(indicator => content.includes(indicator));
         
         if (hasError) {
-            return { status: 404, text: 'Página não encontrada' };
+            const foundIndicator = errorIndicators.find(indicator => content.includes(indicator));
+            return { status: 404, text: `Página não encontrada - Detectado: '${foundIndicator}'` };
         }
         
-        // Verificar se tem indicadores de produto válido
+        // Extração do título da página (como no Python)
+        const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+        if (titleMatch && titleMatch[1]) {
+            let title = titleMatch[1].trim();
+            // Remove " - pague menos" do título (como no Python)
+            title = title.replace(/ - pague menos/gi, '').trim();
+            
+            if (title && title.length > 10) {
+                const nomeProduto = title.substring(0, 50); // Limita a 50 caracteres
+                return { status: 200, text: `Produto válido: ${nomeProduto}` };
+            }
+        }
+        
+        // Lista de indicadores de produto válido (baseada no Python)
         const productIndicators = [
             'adicionar ao carrinho',
-            'comprar',
-            'preço',
-            'produto',
-            'medicamento',
+            'comprar agora',
             'add to cart',
             'buy now',
+            'preço',
             'price',
+            'produto',
+            'medicamento',
             'disponível',
-            'estoque'
+            'estoque',
+            'quantidade',
+            'comprar',
+            'carrinho',
+            'valor',
+            'desconto'
         ];
         
-        const hasProduct = productIndicators.some(indicator => 
-            htmlLower.includes(indicator.toLowerCase())
-        );
+        // Verifica se tem indicadores de produto válido
+        const hasProduct = productIndicators.some(indicator => content.includes(indicator));
         
         if (hasProduct) {
-            return { status: 200, text: 'Produto encontrado' };
+            const foundIndicator = productIndicators.find(indicator => content.includes(indicator));
+            return { status: 200, text: `Produto encontrado - Detectado: '${foundIndicator}'` };
         }
         
-        // Se não tem erro nem indicadores de produto, considerar como página válida
-        return { status: 200, text: 'Página válida' };
+        // Se não tem erro nem indicadores de produto (como no Python)
+        return { status: 200, text: 'Página OK - Nenhum indicador de erro' };
         
     } catch (error) {
-        console.error('Erro na primeira tentativa:', error);
+        console.error('Erro na verificação do link:', error);
         
-        // Fallback: tentar outro proxy
+        // Último recurso: verificação básica de URL (como no Python)
         try {
-            const fallbackProxy = `https://cors-anywhere.herokuapp.com/${url}`;
-            
-            const fallbackResponse = await fetch(fallbackProxy, {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-            
-            if (!fallbackResponse.ok) {
-                return { status: 404, text: 'Link inativo' };
-            }
-            
-            const html = await fallbackResponse.text();
-            const htmlLower = html.toLowerCase();
-            
-            // Mesma verificação de erro
-            const errorIndicators = [
-                'página não encontrada',
-                'page not found',
-                'oops',
-                '404',
-                'erro 404'
-            ];
-            
-            const hasError = errorIndicators.some(indicator => 
-                htmlLower.includes(indicator.toLowerCase())
-            );
-            
-            if (hasError) {
-                return { status: 404, text: 'Página não encontrada' };
-            }
-            
-            return { status: 200, text: 'Página válida' };
-            
-        } catch (fallbackError) {
-            console.error('Erro no fallback:', fallbackError);
-            
-            // Último recurso: verificação básica de URL
-            try {
-                new URL(url);
-                return { status: 'error', text: 'Não foi possível verificar' };
-            } catch (urlError) {
-                return { status: 404, text: 'URL inválida' };
-            }
+            new URL(url);
+            return { status: 'error', text: 'Erro de conexão - Timeout ou bloqueio' };
+        } catch (urlError) {
+            return { status: 404, text: 'URL inválida' };
         }
     }
 }
