@@ -196,7 +196,16 @@ async function updateLinkCounter() {
     
     if (Object.keys(linkFrequency).length > 0) {
         for (const [url, frequency] of Object.entries(linkFrequency)) {
+            // Verificar se é link externo (não é do PagueMenos)
+            const isExternalLink = !url.includes('paguemenos.com.br');
+            
             const row = document.createElement('tr');
+            
+            // Adicionar classe para links externos
+            if (isExternalLink) {
+                row.classList.add('external-link-row');
+            }
+            
             row.innerHTML = `
                 <td class="link-url"><a href="${url}" target="_blank">${url}</a></td>
                 <td class="link-count">${frequency}</td>

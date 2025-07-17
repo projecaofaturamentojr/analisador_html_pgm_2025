@@ -225,6 +225,29 @@ button:focus {
     font-size: 0.8rem;
 }
 
+/* Linha vermelha piscante para links externos */
+.external-link-row {
+    background-color: #ffebee !important;
+    border-left: 4px solid #f44336 !important;
+    animation: blinkRed 1.5s infinite;
+}
+
+@keyframes blinkRed {
+    0%, 50% {
+        border-left-color: #f44336;
+        background-color: #ffebee;
+    }
+    51%, 100% {
+        border-left-color: #ff8a80;
+        background-color: #fce4ec;
+    }
+}
+
+.external-link-row .link-url a {
+    color: #d32f2f !important;
+    font-weight: bold;
+}
+
 .counter-header {
     display: flex;
     justify-content: space-between;
