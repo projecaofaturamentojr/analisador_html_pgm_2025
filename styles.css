@@ -194,6 +194,8 @@ textarea {
   resize: vertical;
   transition: all 0.3s ease;
   outline: none;
+  color: var(--foreground);
+  line-height: 1.5;
 }
 
 textarea:focus {

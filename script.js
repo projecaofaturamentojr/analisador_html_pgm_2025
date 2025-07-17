@@ -284,15 +284,19 @@ async function updateLinkCounter() {
 htmlInput.addEventListener("input", () => {
     updateCharCounter();
     
-    // Formatar HTML automaticamente
+    renderedOutput.srcdoc = htmlInput.value;
+});
+
+// Adicionar evento para formatação apenas quando necessário
+htmlInput.addEventListener("blur", () => {
+    // Formatar HTML apenas quando o usuário sair do campo
     const formattedHtml = formatHTML(htmlInput.value);
     if (formattedHtml !== htmlInput.value) {
-        const cursorPos = htmlInput.selectionStart;
         htmlInput.value = formattedHtml;
-        htmlInput.setSelectionRange(cursorPos, cursorPos);
+        renderedOutput.srcdoc = htmlInput.value;
+        updateCharCounter();
+        updateLinkCounter();
     }
-    
-    renderedOutput.srcdoc = htmlInput.value;
 });
 
 // Sincroniza o HTML de volta ao textarea quando o iframe é editado
