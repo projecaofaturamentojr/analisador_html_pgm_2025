@@ -8,6 +8,7 @@ const copyHtmlButton = document.getElementById("copyHtmlButton");
 const linkCount = document.getElementById("linkCount");
 const progressFill = document.getElementById("progressFill");
 const linkStatus = document.getElementById("linkStatus");
+const charCount = document.getElementById("charCount");
 
 // Função para formatar HTML de forma limpa
 function formatHTML(html) {
@@ -115,6 +116,21 @@ function formatHTML(html) {
     formattedHtml = formattedHtml.replace(/^<p>/, '').replace(/<\/p>$/, '');
     
     return formattedHtml;
+}
+
+// Função para atualizar contador de caracteres
+function updateCharCounter() {
+    const count = htmlInput.value.length;
+    charCount.textContent = count.toLocaleString();
+    
+    // Mudar cor baseado na quantidade
+    if (count > 5000) {
+        charCount.style.color = 'var(--destructive)';
+    } else if (count > 3000) {
+        charCount.style.color = '#ff6348';
+    } else {
+        charCount.style.color = 'var(--muted-foreground)';
+    }
 }
 
 // Função para verificar status do link - baseada na lógica Python que funciona
@@ -266,6 +282,8 @@ async function updateLinkCounter() {
 
 // Atualiza o iframe quando o conteúdo do textarea muda
 htmlInput.addEventListener("input", () => {
+    updateCharCounter();
+    
     // Formatar HTML automaticamente
     const formattedHtml = formatHTML(htmlInput.value);
     if (formattedHtml !== htmlInput.value) {
@@ -286,6 +304,7 @@ renderedOutput.addEventListener("load", () => {
         const content = doc.body.innerHTML.replace(/&nbsp;/g, ' ');
         const cleanedContent = formatHTML(content);
         htmlInput.value = cleanedContent;
+        updateCharCounter();
         updateLinkCounter();
     });
 
@@ -494,8 +513,10 @@ linkButton.addEventListener("click", () => {
 async function copyFormattedContent() {
     const doc = renderedOutput.contentDocument || renderedOutput.contentWindow.document;
     
-    // Obter o HTML formatado do iframe
-    let htmlContent = doc.body.innerHTML;
+    // Obter o HTML formatado do iframe e remover target="_blank"
+    let htmlContent = doc.body.innerHTML
+        .replace(/\s*target="_blank"/gi, '')
+        .replace(/\s*target='_blank'/gi, '');
     
     // Garantir espaços adequados entre elementos
     htmlContent = htmlContent.replace(/(<\/(?:strong|a|em|b|i)>)(\w)/gi, '$1 $2');
@@ -577,6 +598,7 @@ copyTextButton.addEventListener("click", copyFormattedContent);
 clearTextButton.addEventListener("click", () => {
     htmlInput.value = '';
     renderedOutput.srcdoc = '';
+    updateCharCounter();
     updateLinkCounter();
 });
 
@@ -594,4 +616,5 @@ copyHtmlButton.addEventListener("click", async () => {
 });
 
 // Inicializar contador
+updateCharCounter();
 updateLinkCounter();

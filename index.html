@@ -9,21 +9,24 @@
 <body>
     <div class="main-container">
     <header>
-        <h1>Analisador de HTML SEO PagueMenos</h1>
+        <h1>Analisador de HTML SEO <span class="highlight-brand">Pague Menos</span></h1>
         <p>Desenvolvido por Junior Silva</p>
     </header>
-
-    <div class="button-container">
-        <button id="boldButton">Negrito</button>
-        <button id="linkButton">Inserir Link</button>
-    </div>
 
     <div class="container">
         <div class="block">
             <div class="copy-button-container">
+                <div class="char-counter">
+                    <span id="charCount">0</span> caracteres
+                </div>
                 <button id="copyHtmlButton" class="copy-html-btn">Copiar</button>
             </div>
             <textarea id="htmlInput" placeholder="Cole o código HTML aqui..."></textarea>
+            
+            <div class="editor-controls">
+                <button id="boldButton">✨ Negrito</button>
+                <button id="linkButton">🔗 Inserir Link</button>
+            </div>
         </div>
         
         <div class="block">
