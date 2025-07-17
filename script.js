@@ -513,10 +513,12 @@ linkButton.addEventListener("click", () => {
 async function copyFormattedContent() {
     const doc = renderedOutput.contentDocument || renderedOutput.contentWindow.document;
     
-    // Obter o HTML formatado do iframe e remover target="_blank"
+    // Obter o HTML formatado do iframe e remover target="_blank" e outros atributos indesejados
     let htmlContent = doc.body.innerHTML
         .replace(/\s*target="_blank"/gi, '')
-        .replace(/\s*target='_blank'/gi, '');
+        .replace(/\s*target='_blank'/gi, '')
+        .replace(/\s*target="[^"]*"/gi, '')
+        .replace(/\s*target='[^']*'/gi, '');
     
     // Garantir espaços adequados entre elementos
     htmlContent = htmlContent.replace(/(<\/(?:strong|a|em|b|i)>)(\w)/gi, '$1 $2');
