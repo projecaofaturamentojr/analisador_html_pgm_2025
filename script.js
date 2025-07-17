@@ -340,18 +340,144 @@ linkButton.addEventListener("click", () => {
 
         if (selectedText.trim() === "") return; // Evita link sem texto selecionado
 
-        const link = prompt("Insira o link:");
-        if (link) {
-            const anchor = doc.createElement("a");
-            anchor.setAttribute("href", link);
-            anchor.textContent = selectedText;
-            range.deleteContents();
-            range.insertNode(anchor);
-        }
+        // Criar modal personalizado
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            min-width: 400px;
+            max-width: 500px;
+        `;
+        
+        modalContent.innerHTML = `
+            <h3 style="margin: 0 0 20px 0; color: #333; font-size: 1.2rem;">Inserir Link</h3>
+            <p style="margin: 0 0 15px 0; color: #666;">Texto selecionado: <strong>"${selectedText}"</strong></p>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">URL do Link:</label>
+                <input type="text" id="linkInput" placeholder="https://exemplo.com" 
+                       style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; box-sizing: border-box;">
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: space-between; margin-bottom: 20px;">
+                <button id="generateLinkBtn" style="
+                    flex: 1;
+                    padding: 10px 15px;
+                    background: #28a745;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    transition: background 0.3s;
+                ">🔗 Gerar Link PagueMenos</button>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="cancelBtn" style="
+                    padding: 10px 20px;
+                    background: #6c757d;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">Cancelar</button>
+                <button id="insertBtn" style="
+                    padding: 10px 20px;
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">Inserir Link</button>
+            </div>
+        `;
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        const linkInput = modal.querySelector('#linkInput');
+        const generateBtn = modal.querySelector('#generateLinkBtn');
+        const cancelBtn = modal.querySelector('#cancelBtn');
+        const insertBtn = modal.querySelector('#insertBtn');
+        
+        // Função para gerar link automático
+        generateBtn.addEventListener('click', () => {
+            // Converter texto selecionado para formato de URL
+            const urlText = selectedText
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais
+                .replace(/\s+/g, '-') // Substitui espaços por hífens
+                .replace(/-+/g, '-') // Remove hífens duplicados
+                .replace(/^-|-$/g, ''); // Remove hífens do início e fim
+            
+            const generatedLink = `https://www.paguemenos.com.br/${urlText}`;
+            linkInput.value = generatedLink;
+            linkInput.focus();
+        });
+        
+        // Função para inserir o link
+        const insertLink = () => {
+            const link = linkInput.value.trim();
+            if (link) {
+                const anchor = doc.createElement("a");
+                anchor.setAttribute("href", link);
+                anchor.textContent = selectedText;
+                range.deleteContents();
+                range.insertNode(anchor);
+                
+                // Atualizar textarea e contador
+                const content = doc.body.innerHTML.replace(/&nbsp;/g, ' ');
+                htmlInput.value = formatHTML(content);
+                updateLinkCounter();
+            }
+            document.body.removeChild(modal);
+        };
+        
+        // Event listeners
+        insertBtn.addEventListener('click', insertLink);
+        cancelBtn.addEventListener('click', () => document.body.removeChild(modal));
+        
+        // Enter para inserir, Escape para cancelar
+        linkInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                insertLink();
+            } else if (e.key === 'Escape') {
+                document.body.removeChild(modal);
+            }
+        });
+        
+        // Fechar modal clicando fora
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        });
+        
+        // Focar no input
+        setTimeout(() => linkInput.focus(), 100);
 
-        const content = doc.body.innerHTML.replace(/&nbsp;/g, ' ');
-        htmlInput.value = formatHTML(content);
-        updateLinkCounter();
     }
 });
 
