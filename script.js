@@ -10,114 +10,6 @@ const progressFill = document.getElementById("progressFill");
 const linkStatus = document.getElementById("linkStatus");
 const charCount = document.getElementById("charCount");
 
-// Função para formatar HTML de forma limpa
-function formatHTML(html) {
-    if (!html || html.trim() === '') return '';
-    
-    // Limpar tags font desnecessárias e outros elementos de formatação indesejados
-    let cleaned = html
-        // Remove todas as tags <font> mantendo apenas o conteúdo
-        .replace(/<font[^>]*>/gi, '')
-        .replace(/<\/font>/gi, '')
-        // Remove atributos de estilo inline desnecessários
-        .replace(/\s*style="[^"]*"/gi, '')
-        // Remove target="_blank" dos links
-        .replace(/\s*target="_blank"/gi, '')
-        // Padroniza aspas simples nos links
-        .replace(/href="([^"]*)"/gi, "href='$1'")
-        // Remove espaços extras entre tags mas preserva espaços entre palavras
-        .replace(/>\s+</g, '> <')
-        // Remove quebras de linha desnecessárias
-        .replace(/\n\s*\n/g, '\n')
-        // Remove espaços no início e fim
-        .trim();
-
-    // Garantir espaços adequados entre elementos inline
-    cleaned = cleaned.replace(/(<\/(?:strong|a|em|b|i)>)(\w)/gi, '$1 $2');
-    cleaned = cleaned.replace(/(\w)(<(?:strong|a|em|b|i)[^>]*>)/gi, '$1 $2');
-    
-    // Converte <br/> para quebras de linha
-    cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
-    
-    // Separa conteúdo em blocos baseado em quebras de linha duplas
-    let blocks = cleaned.split(/\n\s*\n/);
-    
-    let formattedHtml = '';
-    
-    blocks.forEach((block, index) => {
-        block = block.trim();
-        if (!block) return;
-        
-        // Remove espaços extras mas preserva espaços únicos entre palavras
-        block = block.replace(/\s+/g, ' ').trim();
-        
-        // Verifica se é um título (começa com texto em maiúscula seguido de dois pontos ou ponto de interrogação)
-        const textOnly = block.replace(/<[^>]*>/g, '');
-        if (/^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][^?:]*[?:]?\s*$/.test(textOnly) && textOnly.length < 100) {
-            formattedHtml += `<h2>${block}</h2>\n`;
-        }
-        // Verifica se é uma lista (contém múltiplas linhas ou bullets)
-        else if (block.includes('\n') || /^[\s]*[-•*]\s/.test(block)) {
-            let lines = block.split('\n').filter(line => line.trim());
-            if (lines.length > 1) {
-                formattedHtml += '<ul>\n';
-                lines.forEach(line => {
-                    line = line.replace(/^[\s]*[-•*]\s*/, '').trim();
-                    if (line) {
-                        formattedHtml += `<li>${line}</li>\n`;
-                    }
-                });
-                formattedHtml += '</ul>\n';
-            } else {
-                formattedHtml += `<p>${block}</p>\n`;
-            }
-        }
-        // Parágrafo normal
-        else {
-            formattedHtml += `<p>${block}</p>\n`;
-        }
-    });
-    
-    // Remove parágrafos vazios que possam ter sido criados antes de h2
-    formattedHtml = formattedHtml.replace(/<p>\s*<\/p>\s*(<h2>)/gi, '$1');
-    
-    // Remove qualquer <p> que apareça imediatamente antes de <h2>
-    formattedHtml = formattedHtml.replace(/<p>([^<]*)<\/p>\s*(<h2>)/gi, (match, p1, h2) => {
-        // Se o conteúdo do parágrafo parece ser um título, converte para h2
-        const textOnly = p1.replace(/<[^>]*>/g, '').trim();
-        if (/^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][^?:]*[?:]?\s*$/.test(textOnly) && textOnly.length < 100) {
-            return `<h2>${p1}</h2>\n${h2}`;
-        }
-        return `<p>${p1}</p>\n${h2}`;
-    });
-    
-    // Adiciona quebras de linha para melhor legibilidade
-    formattedHtml = formattedHtml
-        .replace(/(<\/h2>)/gi, '$1\n')
-        .replace(/(<\/p>)/gi, '$1\n')
-        .replace(/(<\/ul>)/gi, '$1\n')
-        .replace(/(<\/li>)/gi, '$1\n')
-        // Remove quebras de linha extras
-        .replace(/\n\s*\n/g, '\n')
-        .trim();
-    
-    // Se começar com <p> e o conteúdo parece ser um título, converte para h2
-    if (formattedHtml.startsWith('<p>')) {
-        const firstPMatch = formattedHtml.match(/^<p>([^<]*(?:<[^>]*>[^<]*)*)<\/p>/);
-        if (firstPMatch) {
-            const textOnly = firstPMatch[1].replace(/<[^>]*>/g, '').trim();
-            if (/^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][^?:]*[?:]?\s*$/.test(textOnly) && textOnly.length < 100) {
-                formattedHtml = formattedHtml.replace(/^<p>([^<]*(?:<[^>]*>[^<]*)*)<\/p>/, '<h2>$1</h2>');
-            }
-        }
-    }
-
-    // Remove <p> do início e fim se existirem
-    formattedHtml = formattedHtml.replace(/^<p>/, '').replace(/<\/p>$/, '');
-    
-    return formattedHtml;
-}
-
 // Função para atualizar contador de caracteres
 function updateCharCounter() {
     const count = htmlInput.value.length;
@@ -286,8 +178,21 @@ htmlInput.addEventListener("input", () => {
     renderedOutput.srcdoc = htmlInput.value;
 });
 
-// Remover formatação automática que estava causando o bloqueio
-// A formatação agora só acontece quando necessário via outros eventos
+// Garantir que o textarea está sempre editável
+htmlInput.addEventListener("focus", () => {
+    htmlInput.readOnly = false;
+    htmlInput.disabled = false;
+});
+
+// Permitir colar conteúdo
+htmlInput.addEventListener("paste", (e) => {
+    // Permitir a operação de colar normalmente
+    setTimeout(() => {
+        updateCharCounter();
+        renderedOutput.srcdoc = htmlInput.value;
+        updateLinkCounter();
+    }, 10);
+});
 
 // Sincroniza o HTML de volta ao textarea quando o iframe é editado
 renderedOutput.addEventListener("load", () => {
@@ -296,8 +201,7 @@ renderedOutput.addEventListener("load", () => {
 
     doc.body.addEventListener("input", () => {
         const content = doc.body.innerHTML.replace(/&nbsp;/g, ' ');
-        const cleanedContent = formatHTML(content);
-        htmlInput.value = cleanedContent;
+        htmlInput.value = content;
         updateCharCounter();
         updateLinkCounter();
     });
@@ -346,7 +250,7 @@ boldButton.addEventListener("click", () => {
 
         // Atualiza o textarea com a nova formatação
         const content = doc.body.innerHTML.replace(/&nbsp;/g, ' ');
-        htmlInput.value = formatHTML(content);
+        htmlInput.value = content;
         updateLinkCounter();
     }
 });
@@ -470,7 +374,7 @@ linkButton.addEventListener("click", () => {
                 
                 // Atualizar textarea e contador
                 const content = doc.body.innerHTML.replace(/&nbsp;/g, ' ');
-                htmlInput.value = formatHTML(content);
+                htmlInput.value = content;
                 updateLinkCounter();
             }
             document.body.removeChild(modal);
@@ -543,11 +447,11 @@ async function copyFormattedContent() {
         
         // Feedback visual
         copyTextButton.textContent = 'Copiado!';
-        copyTextButton.style.backgroundColor = '#28a745';
+        copyTextButton.style.backgroundColor = 'var(--success)';
         
         setTimeout(() => {
             copyTextButton.textContent = 'Copiar';
-            copyTextButton.style.backgroundColor = '#17a2b8';
+            copyTextButton.style.backgroundColor = 'var(--success)';
         }, 2000);
         
     } catch (err) {
@@ -573,11 +477,11 @@ async function copyFormattedContent() {
             document.body.removeChild(tempDiv);
             
             copyTextButton.textContent = 'Copiado!';
-            copyTextButton.style.backgroundColor = '#28a745';
+            copyTextButton.style.backgroundColor = 'var(--success)';
             
             setTimeout(() => {
                 copyTextButton.textContent = 'Copiar';
-                copyTextButton.style.backgroundColor = '#17a2b8';
+                copyTextButton.style.backgroundColor = 'var(--success)';
             }, 2000);
             
         } catch (fallbackErr) {
