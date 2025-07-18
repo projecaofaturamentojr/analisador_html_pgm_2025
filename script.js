@@ -10,12 +10,18 @@ const progressFill = document.getElementById("progressFill");
 const linkStatus = document.getElementById("linkStatus");
 const charCount = document.getElementById("charCount");
 
-// Função para atualizar contador de caracteres
+// ===== TEXTAREA HTML - CÓDIGO LIMPO =====
+
+// Garantir que a textarea está sempre editável
+htmlInput.readOnly = false;
+htmlInput.disabled = false;
+htmlInput.contentEditable = false; // Para textarea, deve ser false
+
+// Função simples para atualizar contador
 function updateCharCounter() {
     const count = htmlInput.value.length;
     charCount.textContent = count.toLocaleString();
     
-    // Mudar cor baseado na quantidade
     if (count > 5000) {
         charCount.style.color = 'var(--destructive)';
     } else if (count > 3000) {
@@ -24,6 +30,38 @@ function updateCharCounter() {
         charCount.style.color = 'var(--muted-foreground)';
     }
 }
+
+// Função simples para atualizar iframe
+function updateIframe() {
+    renderedOutput.srcdoc = htmlInput.value;
+}
+
+// Event listeners SIMPLES para a textarea
+htmlInput.addEventListener('input', function() {
+    updateCharCounter();
+    updateIframe();
+});
+
+htmlInput.addEventListener('paste', function() {
+    setTimeout(() => {
+        updateCharCounter();
+        updateIframe();
+        updateLinkCounter();
+    }, 10);
+});
+
+htmlInput.addEventListener('focus', function() {
+    htmlInput.readOnly = false;
+    htmlInput.disabled = false;
+});
+
+htmlInput.addEventListener('click', function() {
+    htmlInput.readOnly = false;
+    htmlInput.disabled = false;
+    htmlInput.focus();
+});
+
+// ===== FIM DO CÓDIGO DA TEXTAREA =====
 
 // Função para verificar status do link - baseada na lógica Python que funciona
 async function checkLinkStatus(url) {
@@ -171,28 +209,6 @@ async function updateLinkCounter() {
     linkStatus.className = 'link-status ' + statusClass;
     progressFill.className = 'progress-fill ' + statusClass;
 }
-
-// Atualiza o iframe quando o conteúdo do textarea muda
-htmlInput.addEventListener("input", () => {
-    updateCharCounter();
-    renderedOutput.srcdoc = htmlInput.value;
-});
-
-// Garantir que o textarea está sempre editável
-htmlInput.addEventListener("focus", () => {
-    htmlInput.readOnly = false;
-    htmlInput.disabled = false;
-});
-
-// Permitir colar conteúdo
-htmlInput.addEventListener("paste", (e) => {
-    // Permitir a operação de colar normalmente
-    setTimeout(() => {
-        updateCharCounter();
-        renderedOutput.srcdoc = htmlInput.value;
-        updateLinkCounter();
-    }, 10);
-});
 
 // Sincroniza o HTML de volta ao textarea quando o iframe é editado
 renderedOutput.addEventListener("load", () => {
