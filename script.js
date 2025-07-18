@@ -283,21 +283,11 @@ async function updateLinkCounter() {
 // Atualiza o iframe quando o conteúdo do textarea muda
 htmlInput.addEventListener("input", () => {
     updateCharCounter();
-    
     renderedOutput.srcdoc = htmlInput.value;
 });
 
-// Adicionar evento para formatação apenas quando necessário
-htmlInput.addEventListener("blur", () => {
-    // Formatar HTML apenas quando o usuário sair do campo
-    const formattedHtml = formatHTML(htmlInput.value);
-    if (formattedHtml !== htmlInput.value) {
-        htmlInput.value = formattedHtml;
-        renderedOutput.srcdoc = htmlInput.value;
-        updateCharCounter();
-        updateLinkCounter();
-    }
-});
+// Remover formatação automática que estava causando o bloqueio
+// A formatação agora só acontece quando necessário via outros eventos
 
 // Sincroniza o HTML de volta ao textarea quando o iframe é editado
 renderedOutput.addEventListener("load", () => {
