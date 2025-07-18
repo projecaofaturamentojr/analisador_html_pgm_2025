@@ -10,12 +10,8 @@ const progressFill = document.getElementById("progressFill");
 const linkStatus = document.getElementById("linkStatus");
 const charCount = document.getElementById("charCount");
 
-// ===== TEXTAREA HTML - CÓDIGO LIMPO =====
-
-// Garantir que a textarea está sempre editável
-htmlInput.readOnly = false;
-htmlInput.disabled = false;
-htmlInput.contentEditable = false; // Para textarea, deve ser false
+// ===== CÓDIGO SIMPLES E FUNCIONAL DA TEXTAREA =====
+// Baseado no código que está funcionando
 
 // Função simples para atualizar contador
 function updateCharCounter() {
@@ -31,34 +27,11 @@ function updateCharCounter() {
     }
 }
 
-// Função simples para atualizar iframe
-function updateIframe() {
+// Atualiza o iframe quando o conteúdo do textarea muda (CÓDIGO QUE FUNCIONA)
+htmlInput.addEventListener("input", () => {
     renderedOutput.srcdoc = htmlInput.value;
-}
-
-// Event listeners SIMPLES para a textarea
-htmlInput.addEventListener('input', function() {
     updateCharCounter();
-    updateIframe();
-});
-
-htmlInput.addEventListener('paste', function() {
-    setTimeout(() => {
-        updateCharCounter();
-        updateIframe();
-        updateLinkCounter();
-    }, 10);
-});
-
-htmlInput.addEventListener('focus', function() {
-    htmlInput.readOnly = false;
-    htmlInput.disabled = false;
-});
-
-htmlInput.addEventListener('click', function() {
-    htmlInput.readOnly = false;
-    htmlInput.disabled = false;
-    htmlInput.focus();
+    updateLinkCounter();
 });
 
 // ===== FIM DO CÓDIGO DA TEXTAREA =====
@@ -178,10 +151,6 @@ async function updateLinkCounter() {
                 console.error('Erro na verificação:', error);
                 const statusCell = row.querySelector('.link-status-cell');
                 statusCell.innerHTML = `<span class="status-error" title="Erro na verificação">ERRO</span>`;
-            }).catch(error => {
-                console.error('Erro na verificação do link:', error);
-                const statusCell = row.querySelector('.link-status-cell');
-                statusCell.innerHTML = `<span class="status-error">Erro</span>`;
             });
         }
     }
@@ -210,7 +179,7 @@ async function updateLinkCounter() {
     progressFill.className = 'progress-fill ' + statusClass;
 }
 
-// Sincroniza o HTML de volta ao textarea quando o iframe é editado
+// Sincroniza o HTML de volta ao textarea quando o iframe é editado (CÓDIGO QUE FUNCIONA)
 renderedOutput.addEventListener("load", () => {
     const doc = renderedOutput.contentDocument || renderedOutput.contentWindow.document;
     doc.body.contentEditable = true;
@@ -419,7 +388,6 @@ linkButton.addEventListener("click", () => {
         
         // Focar no input
         setTimeout(() => linkInput.focus(), 100);
-
     }
 });
 
